@@ -8,6 +8,7 @@ on:
       - 'src/**'
       - 'Dockerfile'
       - 'pom.xml'
+      - '.github/workflows/**'
 
   push:
     branches:
