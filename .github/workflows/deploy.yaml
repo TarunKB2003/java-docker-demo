@@ -41,3 +41,15 @@ jobs:
 
       - name: Push Docker image to ECR
         run: docker push 350646758224.dkr.ecr.eu-north-1.amazonaws.com/spring-demo:latest
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker pull 350646758224.dkr.ecr.eu-north-1.amazonaws.com/spring-demo:latest
+            docker stop spring-demo || true
+            docker rm spring-demo || true
+            docker run -d --name spring-demo -p 9091:9091 350646758224.dkr.ecr.eu-north-1.amazonaws.com/spring-demo:latest
