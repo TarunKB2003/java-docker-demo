@@ -20,7 +20,7 @@ jobs:
           java-version: 17
 
       - name: Build application with Maven
-        run: mvn clean package -DskipTests
+        run: mvn clean package -Dmaven.test.skip=true
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -49,7 +49,26 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            docker pull 350646758224.dkr.ecr.eu-north-1.amazonaws.com/spring-demo:latest
-            docker stop spring-demo || true
-            docker rm spring-demo || true
-            docker run -d --name spring-demo -p 9091:9091 350646758224.dkr.ecr.eu-north-1.amazonaws.com/spring-demo:latest
+            if ! command -v docker &> /dev/null
+            then
+              sudo apt update
+              sudo apt install docker.io -y
+              sudo systemctl start docker
+              sudo systemctl enable docker
+            fi
+
+            if ! command -v aws &> /dev/null
+            then
+              sudo apt update
+              sudo apt install unzip curl -y
+              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+              unzip -o awscliv2.zip
+              sudo ./aws/install
+            fi
+
+            aws ecr get-login-password --region eu-north-1 | sudo docker login --username AWS --password-stdin 350646758224.dkr.ecr.eu-north-1.amazonaws.com
+
+            sudo docker pull 350646758224.dkr.ecr.eu-north-1.amazonaws.com/spring-demo:latest
+            sudo docker stop spring-demo || true
+            sudo docker rm spring-demo || true
+            sudo docker run -d --name spring-demo -p 9091:9091 350646758224.dkr.ecr.eu-north-1.amazonaws.com/spring-demo:latest
