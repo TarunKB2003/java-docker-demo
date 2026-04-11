@@ -1,12 +1,31 @@
 name: Deploy Java App to AWS
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'Dockerfile'
+      - 'pom.xml'
+
   push:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - 'Dockerfile'
+      - 'pom.xml'
+
+  workflow_dispatch:
+
+env:
+  ECR_REGISTRY: 350646758224.dkr.ecr.eu-north-1.amazonaws.com
+  ECR_REPOSITORY: spring-demo
+  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,8 +38,28 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Build application with Maven
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}
+
+      - name: Build application
         run: mvn clean package -Dmaven.test.skip=true
+
+      - name: Build Docker image
+        run: docker build -t $ECR_REPOSITORY .
+
+  deploy:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -31,16 +70,20 @@ jobs:
 
       - name: Login to ECR
         run: |
-          aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 350646758224.dkr.ecr.eu-north-1.amazonaws.com
+          aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
 
       - name: Build Docker image
-        run: docker build -t spring-demo .
+        run: docker build -t $ECR_REPOSITORY .
 
-      - name: Tag Docker image
-        run: docker tag spring-demo:latest 350646758224.dkr.ecr.eu-north-1.amazonaws.com/spring-demo:latest
+      - name: Tag image
+        run: |
+          docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Push Docker image to ECR
-        run: docker push 350646758224.dkr.ecr.eu-north-1.amazonaws.com/spring-demo:latest
+      - name: Push images to ECR
+        run: |
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
@@ -72,3 +115,5 @@ jobs:
             sudo docker stop spring-demo || true
             sudo docker rm spring-demo || true
             sudo docker run -d --name spring-demo -p 9091:9091 350646758224.dkr.ecr.eu-north-1.amazonaws.com/spring-demo:latest
+
+            sudo docker image prune -f
