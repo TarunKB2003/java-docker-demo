@@ -51,7 +51,17 @@ jobs:
       - name: Build application
         run: mvn clean package -Dmaven.test.skip=true
 
+      - name: Detect changed files
+        id: changes
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            src/**
+            Dockerfile
+            pom.xml
+
       - name: Build Docker image
+        if: steps.changes.outputs.any_changed == 'true'
         run: docker build -t $ECR_REPOSITORY .
 
   deploy:
@@ -63,7 +73,17 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      - name: Detect changed files
+        id: changes
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            src/**
+            Dockerfile
+            pom.xml
+
       - name: Configure AWS credentials
+        if: steps.changes.outputs.any_changed == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
@@ -71,18 +91,22 @@ jobs:
           aws-region: eu-north-1
 
       - name: Login to ECR
+        if: steps.changes.outputs.any_changed == 'true'
         run: |
           aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
 
       - name: Build Docker image
+        if: steps.changes.outputs.any_changed == 'true'
         run: docker build -t $ECR_REPOSITORY .
 
       - name: Tag image
+        if: steps.changes.outputs.any_changed == 'true'
         run: |
           docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Push images to ECR
+        if: steps.changes.outputs.any_changed == 'true'
         run: |
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
