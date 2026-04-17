@@ -71,7 +71,7 @@ jobs:
     if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'dev' && 'dev' || github.ref_name == 'uat' && 'uat' || 'prod' }}
+    environment: ${{ github.ref_name == 'dev' && 'dev' || github.ref_name == 'uat' && 'uat' || github.ref_name == 'main' && 'prod' }}
 
     steps:
       - name: Checkout source code
