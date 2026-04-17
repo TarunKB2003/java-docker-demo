@@ -19,6 +19,6 @@ class DemoApplicationTests {
     void homeEndpointReturnsGreeting() throws Exception {
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
-                .andExpect(content().string("Hello from Spring Boot Docker"));
+                .andExpect(content().string("Hello from Spring Boot Docker and welcome to java"));
     }
 }
