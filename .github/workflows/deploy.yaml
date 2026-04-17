@@ -3,6 +3,8 @@ name: Deploy Java App to AWS
 on:
   pull_request:
     branches:
+      - dev
+      - uat
       - main
     paths:
       - 'src/**'
@@ -12,6 +14,8 @@ on:
 
   push:
     branches:
+      - dev
+      - uat
       - main
     paths:
       - 'src/**'
@@ -23,7 +27,6 @@ on:
 
 env:
   ECR_REGISTRY: 350646758224.dkr.ecr.eu-north-1.amazonaws.com
-  ECR_REPOSITORY: spring-demo
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
@@ -62,12 +65,13 @@ jobs:
 
       - name: Build Docker image
         if: steps.changes.outputs.any_changed == 'true'
-        run: docker build -t $ECR_REPOSITORY .
+        run: docker build -t ${{ vars.ECR_REPOSITORY }} .
 
   deploy:
     if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'dev' && 'dev' || github.ref_name == 'uat' && 'uat' || github.ref_name == 'main' && 'prod' }}
 
     steps:
       - name: Checkout source code
@@ -97,19 +101,19 @@ jobs:
 
       - name: Build Docker image
         if: steps.changes.outputs.any_changed == 'true'
-        run: docker build -t $ECR_REPOSITORY .
+        run: docker build -t ${{ vars.ECR_REPOSITORY }} .
 
       - name: Tag image
         if: steps.changes.outputs.any_changed == 'true'
         run: |
-          docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag ${{ vars.ECR_REPOSITORY }}:latest $ECR_REGISTRY/${{ vars.ECR_REPOSITORY }}:latest
+          docker tag ${{ vars.ECR_REPOSITORY }}:latest $ECR_REGISTRY/${{ vars.ECR_REPOSITORY }}:$IMAGE_TAG
 
       - name: Push images to ECR
         if: steps.changes.outputs.any_changed == 'true'
         run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/${{ vars.ECR_REPOSITORY }}:latest
+          docker push $ECR_REGISTRY/${{ vars.ECR_REPOSITORY }}:$IMAGE_TAG
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
@@ -137,9 +141,9 @@ jobs:
 
             aws ecr get-login-password --region eu-north-1 | sudo docker login --username AWS --password-stdin 350646758224.dkr.ecr.eu-north-1.amazonaws.com
 
-            sudo docker pull 350646758224.dkr.ecr.eu-north-1.amazonaws.com/spring-demo:latest
+            sudo docker pull 350646758224.dkr.ecr.eu-north-1.amazonaws.com/${{ vars.ECR_REPOSITORY }}:latest
             sudo docker stop spring-demo || true
             sudo docker rm spring-demo || true
-            sudo docker run -d --name spring-demo -p 9091:9091 350646758224.dkr.ecr.eu-north-1.amazonaws.com/spring-demo:latest
+            sudo docker run -d --name spring-demo -p ${{ vars.SERVER_PORT }}:${{ vars.SERVER_PORT }} 350646758224.dkr.ecr.eu-north-1.amazonaws.com/${{ vars.ECR_REPOSITORY }}:latest
 
             sudo docker image prune -f
