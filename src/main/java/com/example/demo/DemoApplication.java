@@ -10,7 +10,7 @@ public class DemoApplication {
 
     @GetMapping("/")
     public String home() {
-        return "Hello from Spring Boot Docker and welcome";
+        return "Hello from Spring Boot Docker and welcome to java";
     }
 
     public static void main(String[] args) {
