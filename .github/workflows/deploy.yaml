@@ -1,5 +1,5 @@
 name: Deploy Java App to AWS
-
+# OIDC debug test
 on:
   pull_request:
     branches:
@@ -24,6 +24,10 @@ on:
       - '.github/workflows/**'
 
   workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
 
 env:
   ECR_REGISTRY: 350646758224.dkr.ecr.eu-north-1.amazonaws.com
@@ -87,12 +91,11 @@ jobs:
             Dockerfile
             pom.xml
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials using IAM Role
         if: steps.changes.outputs.any_changed == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          role-to-assume: ${{ secrets.ROLE_ARN }}
           aws-region: eu-north-1
 
       - name: Login to ECR
