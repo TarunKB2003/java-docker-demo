@@ -152,10 +152,8 @@ jobs:
             aws ecr get-login-password --region eu-north-1 | sudo docker login --username AWS --password-stdin 350646758224.dkr.ecr.eu-north-1.amazonaws.com
 
             sudo docker pull 350646758224.dkr.ecr.eu-north-1.amazonaws.com/${{ vars.ECR_REPOSITORY }}:latest
-            sudo docker stop spring-demo || true
-            sudo docker rm spring-demo || true
-            sudo docker stop spring-demo-dev-cont || true
-            sudo docker rm spring-demo-dev-cont || true
+            sudo docker stop ${{ vars.CONTAINER_NAME }} || true
+            sudo docker rm ${{ vars.CONTAINER_NAME }} || true
             sudo docker run -d --name ${{ vars.CONTAINER_NAME }} \
             -p ${{ vars.SERVER_PORT }}:${{ vars.SERVER_PORT }} \
             -e SERVER_PORT=${{ vars.SERVER_PORT }} \
