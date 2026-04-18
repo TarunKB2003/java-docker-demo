@@ -84,13 +84,14 @@ jobs:
         run: |
           echo "github.ref=${{ github.ref }}"
           echo "github.ref_name=${{ github.ref_name }}"
-          echo "role=${{ secrets.ROLE_ARN }}"
+          echo "role=${{ vars.ROLE_ARN }}"
+
 
       - name: Configure AWS credentials using IAM Role
         if: steps.changes.outputs.any_changed == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.ROLE_ARN }}
+          role-to-assume: ${{ vars.ROLE_ARN }}
           aws-region: eu-north-1
 
       - name: Login to ECR
