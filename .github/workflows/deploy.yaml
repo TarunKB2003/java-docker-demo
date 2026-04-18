@@ -73,7 +73,7 @@ jobs:
         run: docker build -t ${{ vars.ECR_REPOSITORY }} .
 
   deploy:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'uat' || github.ref_name == 'main')
     needs: build
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'dev' && 'dev' || github.ref_name == 'uat' && 'uat' || github.ref_name == 'main' && 'prod' }}
