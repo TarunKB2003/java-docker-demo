@@ -91,6 +91,12 @@ jobs:
             Dockerfile
             pom.xml
 
+      - name: Debug GitHub values
+        run: |
+          echo "github.ref=${{ github.ref }}"
+          echo "github.ref_name=${{ github.ref_name }}"
+          echo "role=${{ secrets.ROLE_ARN }}"
+
       - name: Configure AWS credentials using IAM Role
         if: steps.changes.outputs.any_changed == 'true'
         uses: aws-actions/configure-aws-credentials@v4
