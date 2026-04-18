@@ -1,16 +1,5 @@
 name: Deploy Java App to AWS 
 on:
-  pull_request:
-    branches:
-      - dev
-      - uat
-      - main
-    paths:
-      - 'src/**'
-      - 'Dockerfile'
-      - 'pom.xml'
-      - '.github/workflows/**'
-
   push:
     branches:
       - dev
