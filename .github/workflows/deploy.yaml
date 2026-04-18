@@ -1,4 +1,5 @@
 name: Deploy Java App to AWS
+# OIDC debug test 1 1 
 on:
   pull_request:
     branches:
@@ -147,6 +148,10 @@ jobs:
             sudo docker pull 350646758224.dkr.ecr.eu-north-1.amazonaws.com/${{ vars.ECR_REPOSITORY }}:latest
             sudo docker stop spring-demo || true
             sudo docker rm spring-demo || true
-            sudo docker run -d --name spring-demo -p ${{ vars.SERVER_PORT }}:${{ vars.SERVER_PORT }} 350646758224.dkr.ecr.eu-north-1.amazonaws.com/${{ vars.ECR_REPOSITORY }}:latest
-
+            sudo docker run -d --name spring-demo \
+            -p ${{ vars.SERVER_PORT }}:${{ vars.SERVER_PORT }} \
+            -e SERVER_PORT=${{ vars.SERVER_PORT }} \
+            -e APP_ENV=${{ vars.APP_ENV }} \
+            --restart unless-stopped \
+            350646758224.dkr.ecr.eu-north-1.amazonaws.com/${{ vars.ECR_REPOSITORY }}:latest
             sudo docker image prune -f
