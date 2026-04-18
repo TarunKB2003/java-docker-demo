@@ -1,17 +1,6 @@
 name: Deploy Java App to AWS
 # OIDC debug test 1 1 
 on:
-  pull_request:
-    branches:
-      - dev
-      - uat
-      - main
-    paths:
-      - 'src/**'
-      - 'Dockerfile'
-      - 'pom.xml'
-      - '.github/workflows/**'
-
   push:
     branches:
       - dev
