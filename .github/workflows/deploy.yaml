@@ -1,4 +1,4 @@
-name: Deploy Java App to AWS 
+name: Deploy Java App to AWS
 on:
   push:
     branches:
@@ -47,21 +47,8 @@ jobs:
       - name: Build application
         run: mvn clean package -Dmaven.test.skip=true
 
-      - name: Detect changed files
-        id: changes
-        uses: tj-actions/changed-files@v44
-        with:
-          files: |
-            src/**
-            Dockerfile
-            pom.xml
-
-      - name: Build Docker image
-        if: steps.changes.outputs.any_changed == 'true'
-        run: docker build -t ${{ vars.ECR_REPOSITORY }} .
-
   deploy:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'dev' && 'dev' || github.ref_name == 'uat' && 'uat' || github.ref_name == 'main' && 'prod' }}
@@ -108,6 +95,7 @@ jobs:
           docker push $ECR_REGISTRY/${{ vars.ECR_REPOSITORY }}:$IMAGE_TAG
 
       - name: Deploy to EC2
+        if: steps.changes.outputs.any_changed == 'true'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
