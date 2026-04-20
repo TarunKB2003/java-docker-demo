@@ -11,7 +11,7 @@ public class DemoApplication {
 
     @GetMapping("/")
     public String home() {
-        return "Hello from Spring Boot Docker Application!!! and welcome onboard.";
+        return "Hello from Spring Boot Docker Application!!! and welcome onboard. enjoy the experience.";
     }
 
     public static void main(String[] args) {
