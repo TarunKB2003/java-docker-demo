@@ -1,5 +1,4 @@
 name: Deploy Java App to AWS
-# OIDC debug test 1 1 
 on:
   push:
     branches:
@@ -48,21 +47,8 @@ jobs:
       - name: Build application
         run: mvn clean package -Dmaven.test.skip=true
 
-      - name: Detect changed files
-        id: changes
-        uses: tj-actions/changed-files@v44
-        with:
-          files: |
-            src/**
-            Dockerfile
-            pom.xml
-
-      - name: Build Docker image
-        if: steps.changes.outputs.any_changed == 'true'
-        run: docker build -t ${{ vars.ECR_REPOSITORY }} .
-
   deploy:
-    if: github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'uat' || github.ref_name == 'main')
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'dev' && 'dev' || github.ref_name == 'uat' && 'uat' || github.ref_name == 'main' && 'prod' }}
@@ -80,18 +66,11 @@ jobs:
             Dockerfile
             pom.xml
 
-      - name: Debug GitHub values
-        run: |
-          echo "github.ref=${{ github.ref }}"
-          echo "github.ref_name=${{ github.ref_name }}"
-          echo "role=${{ vars.ROLE_ARN }}"
-
-
       - name: Configure AWS credentials using IAM Role
         if: steps.changes.outputs.any_changed == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.ROLE_ARN }}
+          role-to-assume: ${{ secrets.ROLE_ARN }}
           aws-region: eu-north-1
 
       - name: Login to ECR
@@ -116,6 +95,7 @@ jobs:
           docker push $ECR_REGISTRY/${{ vars.ECR_REPOSITORY }}:$IMAGE_TAG
 
       - name: Deploy to EC2
+        if: steps.changes.outputs.any_changed == 'true'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -144,7 +124,7 @@ jobs:
             sudo docker pull 350646758224.dkr.ecr.eu-north-1.amazonaws.com/${{ vars.ECR_REPOSITORY }}:latest
             sudo docker stop ${{ vars.CONTAINER_NAME }} || true
             sudo docker rm ${{ vars.CONTAINER_NAME }} || true
-            sudo docker run -d --name ${{ vars.CONTAINER_NAME }} \
+            sudo docker run -d --name ${{vars.CONTAINER_NAME}} \
             -p ${{ vars.SERVER_PORT }}:${{ vars.SERVER_PORT }} \
             -e SERVER_PORT=${{ vars.SERVER_PORT }} \
             -e APP_ENV=${{ vars.APP_ENV }} \
