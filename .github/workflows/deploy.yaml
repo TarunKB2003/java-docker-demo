@@ -144,6 +144,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: ECR_REPOSITORY,APP_ENV,SERVER_PORT,CONTAINER_NAME
           script: |
             if ! command -v docker &> /dev/null
             then
