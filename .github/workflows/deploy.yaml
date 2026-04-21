@@ -1,4 +1,5 @@
 name: Deploy Java App to AWS
+
 on:
   push:
     branches:
@@ -6,10 +7,10 @@ on:
       - uat
       - main
     paths:
-      - 'src/**'
-      - 'Dockerfile'
-      - 'pom.xml'
-      - '.github/workflows/**'
+      - "src/**"
+      - "Dockerfile"
+      - "pom.xml"
+      - ".github/workflows/**"
 
   workflow_dispatch:
 
@@ -24,11 +25,32 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'dev' && 'dev' || github.ref_name == 'uat' && 'uat' || github.ref_name == 'main' && 'prod' }}
 
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
+
+      - name: Export Variables by Branch
+        run: |
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            echo "ROLE_ARN=${{ secrets.PROD_ROLE_ARN }}" >> $GITHUB_ENV
+            echo "ECR_REPOSITORY=spring-demo-prod" >> $GITHUB_ENV
+            echo "APP_ENV=prod" >> $GITHUB_ENV
+            echo "SERVER_PORT=9091" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=spring-demo-prod" >> $GITHUB_ENV
+          elif [[ "${{ github.ref_name }}" == "uat" ]]; then
+            echo "ROLE_ARN=${{ secrets.UAT_ROLE_ARN }}" >> $GITHUB_ENV
+            echo "ECR_REPOSITORY=spring-demo-uat" >> $GITHUB_ENV
+            echo "APP_ENV=uat" >> $GITHUB_ENV
+            echo "SERVER_PORT=9092" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=spring-demo-uat" >> $GITHUB_ENV
+          elif [[ "${{ github.ref_name }}" == "dev" ]]; then
+            echo "ROLE_ARN=${{ secrets.DEV_ROLE_ARN }}" >> $GITHUB_ENV
+            echo "ECR_REPOSITORY=spring-demo-dev" >> $GITHUB_ENV
+            echo "APP_ENV=dev" >> $GITHUB_ENV
+            echo "SERVER_PORT=9093" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=spring-demo-dev" >> $GITHUB_ENV
+          fi
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -51,11 +73,32 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'dev' && 'dev' || github.ref_name == 'uat' && 'uat' || github.ref_name == 'main' && 'prod' }}
 
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
+
+      - name: Export Variables by Branch
+        run: |
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            echo "ROLE_ARN=${{ secrets.PROD_ROLE_ARN }}" >> $GITHUB_ENV
+            echo "ECR_REPOSITORY=spring-demo-prod" >> $GITHUB_ENV
+            echo "APP_ENV=prod" >> $GITHUB_ENV
+            echo "SERVER_PORT=9091" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=spring-demo-prod" >> $GITHUB_ENV
+          elif [[ "${{ github.ref_name }}" == "uat" ]]; then
+            echo "ROLE_ARN=${{ secrets.UAT_ROLE_ARN }}" >> $GITHUB_ENV
+            echo "ECR_REPOSITORY=spring-demo-uat" >> $GITHUB_ENV
+            echo "APP_ENV=uat" >> $GITHUB_ENV
+            echo "SERVER_PORT=9091" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=spring-demo-uat" >> $GITHUB_ENV
+          elif [[ "${{ github.ref_name }}" == "dev" ]]; then
+            echo "ROLE_ARN=${{ secrets.DEV_ROLE_ARN }}" >> $GITHUB_ENV
+            echo "ECR_REPOSITORY=spring-demo-dev" >> $GITHUB_ENV
+            echo "APP_ENV=dev" >> $GITHUB_ENV
+            echo "SERVER_PORT=9091" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=spring-demo-dev" >> $GITHUB_ENV
+          fi
 
       - name: Detect changed files
         id: changes
@@ -70,7 +113,7 @@ jobs:
         if: steps.changes.outputs.any_changed == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.ROLE_ARN }}
+          role-to-assume: ${{ env.ROLE_ARN }}
           aws-region: eu-north-1
 
       - name: Login to ECR
@@ -80,19 +123,19 @@ jobs:
 
       - name: Build Docker image
         if: steps.changes.outputs.any_changed == 'true'
-        run: docker build -t ${{ vars.ECR_REPOSITORY }} .
+        run: docker build -t $ECR_REPOSITORY .
 
       - name: Tag image
         if: steps.changes.outputs.any_changed == 'true'
         run: |
-          docker tag ${{ vars.ECR_REPOSITORY }}:latest $ECR_REGISTRY/${{ vars.ECR_REPOSITORY }}:latest
-          docker tag ${{ vars.ECR_REPOSITORY }}:latest $ECR_REGISTRY/${{ vars.ECR_REPOSITORY }}:$IMAGE_TAG
+          docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Push images to ECR
         if: steps.changes.outputs.any_changed == 'true'
         run: |
-          docker push $ECR_REGISTRY/${{ vars.ECR_REPOSITORY }}:latest
-          docker push $ECR_REGISTRY/${{ vars.ECR_REPOSITORY }}:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Deploy to EC2
         if: steps.changes.outputs.any_changed == 'true'
@@ -121,13 +164,14 @@ jobs:
 
             aws ecr get-login-password --region eu-north-1 | sudo docker login --username AWS --password-stdin 350646758224.dkr.ecr.eu-north-1.amazonaws.com
 
-            sudo docker pull 350646758224.dkr.ecr.eu-north-1.amazonaws.com/${{ vars.ECR_REPOSITORY }}:latest
-            sudo docker stop ${{ vars.CONTAINER_NAME }} || true
-            sudo docker rm ${{ vars.CONTAINER_NAME }} || true
-            sudo docker run -d --name ${{vars.CONTAINER_NAME}} \
-            -p ${{ vars.SERVER_PORT }}:${{ vars.SERVER_PORT }} \
-            -e SERVER_PORT=${{ vars.SERVER_PORT }} \
-            -e APP_ENV=${{ vars.APP_ENV }} \
-            --restart unless-stopped \
-            350646758224.dkr.ecr.eu-north-1.amazonaws.com/${{ vars.ECR_REPOSITORY }}:latest
+            sudo docker pull 350646758224.dkr.ecr.eu-north-1.amazonaws.com/$ECR_REPOSITORY:latest
+            sudo docker stop $CONTAINER_NAME || true
+            sudo docker rm $CONTAINER_NAME || true
+            sudo docker run -d --name $CONTAINER_NAME \
+              -p $SERVER_PORT:$SERVER_PORT \
+              -e SERVER_PORT=$SERVER_PORT \
+              -e APP_ENV=$APP_ENV \
+              --restart unless-stopped \
+              350646758224.dkr.ecr.eu-north-1.amazonaws.com/$ECR_REPOSITORY:latest
+
             sudo docker image prune -f
