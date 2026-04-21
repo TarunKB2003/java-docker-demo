@@ -48,7 +48,7 @@ jobs:
             echo "ROLE_ARN=${{ secrets.DEV_ROLE_ARN }}" >> $GITHUB_ENV
             echo "ECR_REPOSITORY=spring-demo-dev" >> $GITHUB_ENV
             echo "APP_ENV=dev" >> $GITHUB_ENV
-            echo "SERVER_PORT=9093" >> $GITHUB_ENV
+            echo "SERVER_PORT=9094" >> $GITHUB_ENV
             echo "CONTAINER_NAME=spring-demo-dev-cont" >> $GITHUB_ENV
           fi
 
@@ -96,7 +96,7 @@ jobs:
             echo "ROLE_ARN=${{ secrets.DEV_ROLE_ARN }}" >> $GITHUB_ENV
             echo "ECR_REPOSITORY=spring-demo-dev" >> $GITHUB_ENV
             echo "APP_ENV=dev" >> $GITHUB_ENV
-            echo "SERVER_PORT=9093" >> $GITHUB_ENV
+            echo "SERVER_PORT=9094" >> $GITHUB_ENV
             echo "CONTAINER_NAME=spring-demo-dev-cont" >> $GITHUB_ENV
           fi
 
@@ -166,8 +166,6 @@ jobs:
             aws ecr get-login-password --region eu-north-1 | sudo docker login --username AWS --password-stdin 350646758224.dkr.ecr.eu-north-1.amazonaws.com
 
             sudo docker pull 350646758224.dkr.ecr.eu-north-1.amazonaws.com/$ECR_REPOSITORY:latest
-            sudo docker stop spring-demo-dev || true
-            sudo docker rm spring-demo-dev || true
             sudo docker stop $CONTAINER_NAME || true
             sudo docker rm $CONTAINER_NAME || true
             sudo docker run -d --name $CONTAINER_NAME \
