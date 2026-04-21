@@ -19,8 +19,10 @@ permissions:
   contents: read
 
 env:
-  ECR_REGISTRY: 350646758224.dkr.ecr.eu-north-1.amazonaws.com
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
   IMAGE_TAG: ${{ github.sha }}
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
 
 jobs:
   build:
@@ -29,28 +31,6 @@ jobs:
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
-
-      - name: Export Variables by Branch
-        run: |
-          if [[ "${{ github.ref_name }}" == "main" ]]; then
-            echo "ROLE_ARN=${{ secrets.PROD_ROLE_ARN }}" >> $GITHUB_ENV
-            echo "ECR_REPOSITORY=spring-demo-prod" >> $GITHUB_ENV
-            echo "APP_ENV=prod" >> $GITHUB_ENV
-            echo "SERVER_PORT=9091" >> $GITHUB_ENV
-            echo "CONTAINER_NAME=spring-demo-prod-cont" >> $GITHUB_ENV
-          elif [[ "${{ github.ref_name }}" == "uat" ]]; then
-            echo "ROLE_ARN=${{ secrets.UAT_ROLE_ARN }}" >> $GITHUB_ENV
-            echo "ECR_REPOSITORY=spring-demo-uat" >> $GITHUB_ENV
-            echo "APP_ENV=uat" >> $GITHUB_ENV
-            echo "SERVER_PORT=9092" >> $GITHUB_ENV
-            echo "CONTAINER_NAME=spring-demo-uat-cont" >> $GITHUB_ENV
-          elif [[ "${{ github.ref_name }}" == "dev" ]]; then
-            echo "ROLE_ARN=${{ secrets.DEV_ROLE_ARN }}" >> $GITHUB_ENV
-            echo "ECR_REPOSITORY=spring-demo-dev" >> $GITHUB_ENV
-            echo "APP_ENV=dev" >> $GITHUB_ENV
-            echo "SERVER_PORT=9094" >> $GITHUB_ENV
-            echo "CONTAINER_NAME=spring-demo-dev-cont" >> $GITHUB_ENV
-          fi
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -82,22 +62,22 @@ jobs:
         run: |
           if [[ "${{ github.ref_name }}" == "main" ]]; then
             echo "ROLE_ARN=${{ secrets.PROD_ROLE_ARN }}" >> $GITHUB_ENV
-            echo "ECR_REPOSITORY=spring-demo-prod" >> $GITHUB_ENV
+            echo "ECR_REPOSITORY=${{ secrets.PROD_ECR_REPOSITORY }}" >> $GITHUB_ENV
             echo "APP_ENV=prod" >> $GITHUB_ENV
             echo "SERVER_PORT=9091" >> $GITHUB_ENV
-            echo "CONTAINER_NAME=spring-demo-prod-cont" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=${{ secrets.EC2_CONTAINER_PROD }}" >> $GITHUB_ENV
           elif [[ "${{ github.ref_name }}" == "uat" ]]; then
             echo "ROLE_ARN=${{ secrets.UAT_ROLE_ARN }}" >> $GITHUB_ENV
-            echo "ECR_REPOSITORY=spring-demo-uat" >> $GITHUB_ENV
+            echo "ECR_REPOSITORY=${{ secrets.UAT_ECR_REPOSITORY }}" >> $GITHUB_ENV
             echo "APP_ENV=uat" >> $GITHUB_ENV
             echo "SERVER_PORT=9092" >> $GITHUB_ENV
-            echo "CONTAINER_NAME=spring-demo-uat-cont" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=${{ secrets.EC2_CONTAINER_UAT }}" >> $GITHUB_ENV
           elif [[ "${{ github.ref_name }}" == "dev" ]]; then
             echo "ROLE_ARN=${{ secrets.DEV_ROLE_ARN }}" >> $GITHUB_ENV
-            echo "ECR_REPOSITORY=spring-demo-dev" >> $GITHUB_ENV
+            echo "ECR_REPOSITORY=${{ secrets.DEV_ECR_REPOSITORY }}" >> $GITHUB_ENV
             echo "APP_ENV=dev" >> $GITHUB_ENV
             echo "SERVER_PORT=9094" >> $GITHUB_ENV
-            echo "CONTAINER_NAME=spring-demo-dev-cont" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=${{ secrets.EC2_CONTAINER_DEV }}" >> $GITHUB_ENV
           fi
 
       - name: Detect changed files
@@ -114,12 +94,12 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.ROLE_ARN }}
-          aws-region: eu-north-1
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to ECR
         if: steps.changes.outputs.any_changed == 'true'
         run: |
-          aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
 
       - name: Build Docker image
         if: steps.changes.outputs.any_changed == 'true'
@@ -128,51 +108,55 @@ jobs:
       - name: Tag image
         if: steps.changes.outputs.any_changed == 'true'
         run: |
-          docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag $ECR_REPOSITORY:latest ${{ env.ECR_REGISTRY }}/$ECR_REPOSITORY:latest
+          docker tag $ECR_REPOSITORY:latest ${{ env.ECR_REGISTRY }}/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
 
       - name: Push images to ECR
         if: steps.changes.outputs.any_changed == 'true'
         run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push ${{ env.ECR_REGISTRY }}/$ECR_REPOSITORY:latest
+          docker push ${{ env.ECR_REGISTRY }}/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
 
-      - name: Deploy to EC2
+      - name: Deploy to EC2 via SSM
         if: steps.changes.outputs.any_changed == 'true'
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          envs: ECR_REPOSITORY,APP_ENV,SERVER_PORT,CONTAINER_NAME
-          script: |
-            if ! command -v docker &> /dev/null
-            then
-              sudo apt update
-              sudo apt install docker.io -y
-              sudo systemctl start docker
-              sudo systemctl enable docker
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+          --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+          --document-name "AWS-RunShellScript" \
+          --comment "Deploy Java App" \
+          --parameters "commands=[
+          \"command -v docker >/dev/null 2>&1 || (sudo apt update && sudo apt install -y docker.io && sudo systemctl enable --now docker)\",
+          \"command -v aws >/dev/null 2>&1 || (sudo apt update && sudo apt install -y unzip curl && curl -s https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip && unzip -oq awscliv2.zip && sudo ./aws/install)\",
+          \"aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com\",
+          \"docker pull $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:latest\",
+          \"docker stop $CONTAINER_NAME || true\",
+          \"docker rm $CONTAINER_NAME || true\",
+          \"docker run -d --name $CONTAINER_NAME -p $SERVER_PORT:$SERVER_PORT -e SERVER_PORT=$SERVER_PORT -e APP_ENV=$APP_ENV --restart unless-stopped $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:latest\",
+          \"docker image prune -f\"]" \
+          --query "Command.CommandId" \
+          --output text)
+
+          for i in {1..36}; do
+            STATUS=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+            --query "Status" \
+            --output text 2>/dev/null || echo "Pending")
+
+            if [[ "$STATUS" == "Success" || "$STATUS" == "Failed" || "$STATUS" == "TimedOut" || "$STATUS" == "Cancelled" ]]; then
+              break
             fi
 
-            if ! command -v aws &> /dev/null
-            then
-              sudo apt update
-              sudo apt install unzip curl -y
-              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-              unzip -o awscliv2.zip
-              sudo ./aws/install
-            fi
+            sleep 10
+          done
 
-            aws ecr get-login-password --region eu-north-1 | sudo docker login --username AWS --password-stdin 350646758224.dkr.ecr.eu-north-1.amazonaws.com
+          aws ssm get-command-invocation \
+          --command-id "$COMMAND_ID" \
+          --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+          --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+          --output json
 
-            sudo docker pull 350646758224.dkr.ecr.eu-north-1.amazonaws.com/$ECR_REPOSITORY:latest
-            sudo docker stop $CONTAINER_NAME || true
-            sudo docker rm $CONTAINER_NAME || true
-            sudo docker run -d --name $CONTAINER_NAME \
-              -p $SERVER_PORT:$SERVER_PORT \
-              -e SERVER_PORT=$SERVER_PORT \
-              -e APP_ENV=$APP_ENV \
-              --restart unless-stopped \
-              350646758224.dkr.ecr.eu-north-1.amazonaws.com/$ECR_REPOSITORY:latest
-
-            sudo docker image prune -f
+          if [ "$STATUS" != "Success" ]; then
+            echo "Deployment failed with status: $STATUS"
+            exit 1
+          fi
