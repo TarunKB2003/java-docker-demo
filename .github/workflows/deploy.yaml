@@ -90,13 +90,13 @@ jobs:
             echo "ROLE_ARN=${{ secrets.UAT_ROLE_ARN }}" >> $GITHUB_ENV
             echo "ECR_REPOSITORY=spring-demo-uat" >> $GITHUB_ENV
             echo "APP_ENV=uat" >> $GITHUB_ENV
-            echo "SERVER_PORT=9091" >> $GITHUB_ENV
+            echo "SERVER_PORT=9092" >> $GITHUB_ENV
             echo "CONTAINER_NAME=spring-demo-uat" >> $GITHUB_ENV
           elif [[ "${{ github.ref_name }}" == "dev" ]]; then
             echo "ROLE_ARN=${{ secrets.DEV_ROLE_ARN }}" >> $GITHUB_ENV
             echo "ECR_REPOSITORY=spring-demo-dev" >> $GITHUB_ENV
             echo "APP_ENV=dev" >> $GITHUB_ENV
-            echo "SERVER_PORT=9091" >> $GITHUB_ENV
+            echo "SERVER_PORT=9093" >> $GITHUB_ENV
             echo "CONTAINER_NAME=spring-demo-dev" >> $GITHUB_ENV
           fi
 
