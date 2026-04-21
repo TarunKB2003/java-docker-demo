@@ -37,19 +37,19 @@ jobs:
             echo "ECR_REPOSITORY=spring-demo-prod" >> $GITHUB_ENV
             echo "APP_ENV=prod" >> $GITHUB_ENV
             echo "SERVER_PORT=9091" >> $GITHUB_ENV
-            echo "CONTAINER_NAME=spring-demo-prod" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=spring-demo-prod-cont" >> $GITHUB_ENV
           elif [[ "${{ github.ref_name }}" == "uat" ]]; then
             echo "ROLE_ARN=${{ secrets.UAT_ROLE_ARN }}" >> $GITHUB_ENV
             echo "ECR_REPOSITORY=spring-demo-uat" >> $GITHUB_ENV
             echo "APP_ENV=uat" >> $GITHUB_ENV
             echo "SERVER_PORT=9092" >> $GITHUB_ENV
-            echo "CONTAINER_NAME=spring-demo-uat" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=spring-demo-uat-cont" >> $GITHUB_ENV
           elif [[ "${{ github.ref_name }}" == "dev" ]]; then
             echo "ROLE_ARN=${{ secrets.DEV_ROLE_ARN }}" >> $GITHUB_ENV
             echo "ECR_REPOSITORY=spring-demo-dev" >> $GITHUB_ENV
             echo "APP_ENV=dev" >> $GITHUB_ENV
             echo "SERVER_PORT=9093" >> $GITHUB_ENV
-            echo "CONTAINER_NAME=spring-demo-dev" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=spring-demo-dev-cont" >> $GITHUB_ENV
           fi
 
       - name: Set up Java 17
@@ -85,19 +85,19 @@ jobs:
             echo "ECR_REPOSITORY=spring-demo-prod" >> $GITHUB_ENV
             echo "APP_ENV=prod" >> $GITHUB_ENV
             echo "SERVER_PORT=9091" >> $GITHUB_ENV
-            echo "CONTAINER_NAME=spring-demo-prod" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=spring-demo-prod-cont" >> $GITHUB_ENV
           elif [[ "${{ github.ref_name }}" == "uat" ]]; then
             echo "ROLE_ARN=${{ secrets.UAT_ROLE_ARN }}" >> $GITHUB_ENV
             echo "ECR_REPOSITORY=spring-demo-uat" >> $GITHUB_ENV
             echo "APP_ENV=uat" >> $GITHUB_ENV
             echo "SERVER_PORT=9092" >> $GITHUB_ENV
-            echo "CONTAINER_NAME=spring-demo-uat" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=spring-demo-uat-cont" >> $GITHUB_ENV
           elif [[ "${{ github.ref_name }}" == "dev" ]]; then
             echo "ROLE_ARN=${{ secrets.DEV_ROLE_ARN }}" >> $GITHUB_ENV
             echo "ECR_REPOSITORY=spring-demo-dev" >> $GITHUB_ENV
             echo "APP_ENV=dev" >> $GITHUB_ENV
             echo "SERVER_PORT=9093" >> $GITHUB_ENV
-            echo "CONTAINER_NAME=spring-demo-dev" >> $GITHUB_ENV
+            echo "CONTAINER_NAME=spring-demo-dev-cont" >> $GITHUB_ENV
           fi
 
       - name: Detect changed files
@@ -166,6 +166,8 @@ jobs:
             aws ecr get-login-password --region eu-north-1 | sudo docker login --username AWS --password-stdin 350646758224.dkr.ecr.eu-north-1.amazonaws.com
 
             sudo docker pull 350646758224.dkr.ecr.eu-north-1.amazonaws.com/$ECR_REPOSITORY:latest
+            sudo docker stop spring-demo-dev || true
+            sudo docker rm spring-demo-dev || true
             sudo docker stop $CONTAINER_NAME || true
             sudo docker rm $CONTAINER_NAME || true
             sudo docker run -d --name $CONTAINER_NAME \
