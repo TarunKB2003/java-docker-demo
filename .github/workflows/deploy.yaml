@@ -1,4 +1,4 @@
-name: Deploy Java App to AWS
+name: Backend Deploy
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
       - "src/**"
       - "Dockerfile"
       - "pom.xml"
-      - ".github/workflows/**"
+      - ".github/workflows/deploy.yaml"
 
   workflow_dispatch:
 

@@ -1,0 +1,73 @@
+name: Frontend Build Check
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - uat
+      - main
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-build-check.yaml"
+
+jobs:
+  build-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate frontend structure
+        working-directory: frontend
+        run: |
+          echo "Validating frontend file structure..."
+
+          # Check required files exist
+          for file in index.html css/style.css js/app.js; do
+            if [ ! -f "$file" ]; then
+              echo "ERROR: Missing required file: $file"
+              exit 1
+            fi
+            echo "✓ $file"
+          done
+
+          echo "All required files present."
+
+      - name: Validate HTML
+        working-directory: frontend
+        run: |
+          # Basic HTML validation
+          if ! grep -q '<!DOCTYPE html>' index.html; then
+            echo "ERROR: Missing DOCTYPE declaration"
+            exit 1
+          fi
+          if ! grep -q '<meta name="viewport"' index.html; then
+            echo "WARNING: Missing viewport meta tag"
+          fi
+          echo "✓ HTML structure validated"
+
+      - name: Check file sizes
+        working-directory: frontend
+        run: |
+          echo "File size report:"
+          echo "========================"
+          find . -type f \( -name "*.html" -o -name "*.css" -o -name "*.js" \) -exec ls -lh {} \;
+          echo "========================"
+
+          # Warn if any file exceeds 500KB
+          find . -type f -size +500k \( -name "*.html" -o -name "*.css" -o -name "*.js" \) | while read f; do
+            echo "WARNING: Large file detected: $f ($(du -h "$f" | cut -f1))"
+          done
+
+          echo "✓ File size check complete"
+
+      - name: Build Docker image (validate)
+        working-directory: frontend
+        run: |
+          if [ -f "Dockerfile" ]; then
+            docker build -t frontend-test .
+            echo "✓ Docker image builds successfully"
+          else
+            echo "No Dockerfile found, skipping Docker build check"
+          fi

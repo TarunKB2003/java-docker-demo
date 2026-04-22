@@ -2,3 +2,6 @@ target/
 .m2/
 .idea/
 *.log
+frontend/
+.github/workflows/deploy-frontend.yaml
+.github/workflows/frontend-build-check.yaml
